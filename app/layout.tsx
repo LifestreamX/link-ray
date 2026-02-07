@@ -4,7 +4,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'LinkRay - AI Link Pre-screener',
   description:
-    'Know before you click. AI-powered link analysis with safety scoring.',
+    'Know before you visit. AI-powered link analysis with safety scoring.',
 };
 
 export default function RootLayout({

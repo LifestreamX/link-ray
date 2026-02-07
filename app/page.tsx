@@ -106,7 +106,7 @@ export default function Home() {
               LinkRay
             </h1>
           </div>
-          <p className='text-xl text-gray-300 mb-2'>Know before you click.</p>
+          <p className='text-xl text-gray-300 mb-2'>Know before you visit.</p>
           <p className='text-sm text-gray-400'>
             AI-powered link analysis with safety scoring
           </p>

@@ -3,13 +3,18 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as cheerio from 'cheerio';
 import { getCachedScan, saveScan } from '@/lib/supabase';
 import { hashUrl, validateUrl } from '@/lib/utils';
-import type { AnalysisRequest, AnalysisResponse, GeminiAnalysisResult, ScrapedContent } from '@/types';
+import type {
+  AnalysisRequest,
+  AnalysisResponse,
+  GeminiAnalysisResult,
+  ScrapedContent,
+} from '@/types';
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-// Timeout for fetch requests (5 seconds)
-const FETCH_TIMEOUT = 5000;
+// Timeout for fetch requests (8 seconds)
+const FETCH_TIMEOUT = 8000;
 
 /**
  * Fetch HTML with timeout guard
@@ -22,9 +27,10 @@ async function fetchWithTimeout(url: string, timeout: number): Promise<string> {
     const response = await fetch(url, {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        Accept:
+          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       },
     });
 
@@ -51,12 +57,19 @@ function scrapeContent(html: string): ScrapedContent {
   const $ = cheerio.load(html);
 
   // Remove unwanted elements
-  $('script, style, nav, footer, header, iframe, noscript').remove();
+  $('script, style, nav, footer, header, iframe, noscript, svg').remove();
 
   // Try to get the main content
   let text = '';
-  const mainSelectors = ['main', 'article', '[role="main"]', '#content', '.content'];
-  
+  const mainSelectors = [
+    'main',
+    'article',
+    '[role="main"]',
+    '#content',
+    '.content',
+    'body',
+  ];
+
   for (const selector of mainSelectors) {
     const content = $(selector).text();
     if (content.length > text.length) {
@@ -64,19 +77,10 @@ function scrapeContent(html: string): ScrapedContent {
     }
   }
 
-  // Fallback to body if no main content found
-  if (text.length < 100) {
-    text = $('body').text();
-  }
+  // Clean whitespace and limit length to save tokens
+  text = text.replace(/\s+/g, ' ').trim().substring(0, 12000);
 
-  // Clean whitespace and limit length
-  text = text
-    .replace(/\s+/g, ' ')
-    .trim()
-    .substring(0, 10000);
-
-  // Get page title
-  const title = $('title').text().trim() || $('h1').first().text().trim() || 'Unknown';
+  const title = $('title').text().trim() || 'Unknown Website';
 
   return { text, title };
 }
@@ -84,47 +88,51 @@ function scrapeContent(html: string): ScrapedContent {
 /**
  * Analyze content with Gemini AI
  */
-async function analyzeWithAI(content: ScrapedContent): Promise<GeminiAnalysisResult> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+async function analyzeWithAI(
+  content: ScrapedContent,
+): Promise<GeminiAnalysisResult> {
+  // ✅ FINAL FIX: Use the generic stable alias 'gemini-flash-latest'
+  // This appeared explicitly in your 'debug-gemini.js' success list
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-flash-latest',
+    generationConfig: { responseMimeType: 'application/json' },
+  });
 
-  const prompt = `Analyze this website content and respond ONLY with a valid JSON object (no markdown, no code blocks, just raw JSON).
+  const prompt = `Analyze this website.
+  Title: ${content.title}
+  Content: ${content.text}
 
-Website Title: ${content.title}
-Content: ${content.text}
-
-Return JSON with this exact structure:
-{
-  "summary": "2-sentence summary of what this website is about",
-  "risk_score": <number from 0-100, where 100 is completely safe>,
-  "category": "one category like Blog, E-commerce, News, Social Media, Phishing, Scam, Educational, etc.",
-  "tags": ["tag1", "tag2", "tag3"]
-}`;
+  Return a JSON object with this EXACT structure:
+  {
+    "summary": "2-sentence summary of what this website is about",
+    "risk_score": 50,
+    "category": "Category Name",
+    "tags": ["tag1", "tag2", "tag3"]
+  }`;
 
   try {
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    let text = response.text();
+    const text = response.text();
 
-    // Clean up response - remove markdown code blocks if present
-    text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    // Parse JSON
+    const analysis = JSON.parse(text);
 
-    const analysis: GeminiAnalysisResult = JSON.parse(text);
-
-    // Validate and normalize the response
     return {
       summary: analysis.summary || 'Unable to generate summary',
-      risk_score: Math.min(100, Math.max(0, analysis.risk_score || 50)),
+      risk_score:
+        typeof analysis.risk_score === 'number' ? analysis.risk_score : 50,
       category: analysis.category || 'Unknown',
       tags: Array.isArray(analysis.tags) ? analysis.tags.slice(0, 5) : [],
     };
   } catch (error) {
     console.error('AI Analysis Error:', error);
-    // Return safe defaults on error
+    // Graceful fallback
     return {
-      summary: 'Unable to analyze this website content.',
+      summary: 'Unable to analyze this website at the moment.',
       risk_score: 50,
-      category: 'Unknown',
-      tags: ['unanalyzed'],
+      category: 'Uncategorized',
+      tags: ['error'],
     };
   }
 }
@@ -137,100 +145,83 @@ export async function POST(request: NextRequest) {
     const body: AnalysisRequest = await request.json();
     const { url } = body;
 
-    // Validate URL
+    // 1. Validate URL
     const validation = validateUrl(url);
     if (!validation.valid) {
       return NextResponse.json(
-        { success: false, error: validation.error || 'Invalid URL' } as AnalysisResponse,
-        { status: 400 }
+        { success: false, error: 'Invalid URL' },
+        { status: 400 },
       );
     }
 
     const normalizedUrl = validation.normalized!;
     const urlHash = hashUrl(normalizedUrl);
 
-    // Check cache first
+    // 2. Check Cache
     const cachedScan = await getCachedScan(urlHash);
     if (cachedScan) {
       const screenshotUrl = `https://api.microlink.io?url=${encodeURIComponent(normalizedUrl)}&screenshot=true&meta=false&embed=screenshot.url`;
-      
       return NextResponse.json({
         success: true,
         data: {
-          id: cachedScan.id,
-          url: cachedScan.url,
-          summary: cachedScan.summary,
-          risk_score: cachedScan.risk_score,
-          category: cachedScan.category,
-          tags: cachedScan.tags,
+          ...cachedScan,
           screenshot_url: screenshotUrl,
-          created_at: cachedScan.created_at,
           from_cache: true,
         },
-      } as AnalysisResponse);
+      });
     }
 
-    // No cache hit - perform fresh analysis
+    // 3. Fetch HTML
     let html: string;
     try {
       html = await fetchWithTimeout(normalizedUrl, FETCH_TIMEOUT);
     } catch (error: any) {
       return NextResponse.json(
-        { success: false, error: error.message || 'Failed to fetch website' } as AnalysisResponse,
-        { status: 500 }
+        {
+          success: false,
+          error: 'Failed to load website. It might be blocking bots.',
+        },
+        { status: 500 },
       );
     }
 
-    // Scrape content
+    // 4. Scrape
     const scrapedContent = scrapeContent(html);
-
     if (!scrapedContent.text || scrapedContent.text.length < 50) {
       return NextResponse.json(
-        { success: false, error: 'Unable to extract meaningful content from this website' } as AnalysisResponse,
-        { status: 422 }
+        { success: false, error: 'Website has no readable content.' },
+        { status: 422 },
       );
     }
 
-    // Analyze with AI
+    // 5. Analyze
     const analysis = await analyzeWithAI(scrapedContent);
 
-    // Save to database
+    // 6. Save & Return
     const savedScan = await saveScan({
       url_hash: urlHash,
       url: normalizedUrl,
-      summary: analysis.summary,
-      risk_score: analysis.risk_score,
-      category: analysis.category,
-      tags: analysis.tags,
+      ...analysis,
     });
-
-    if (!savedScan) {
-      // Still return the analysis even if save failed
-      console.error('Failed to save scan to database');
-    }
 
     const screenshotUrl = `https://api.microlink.io?url=${encodeURIComponent(normalizedUrl)}&screenshot=true&meta=false&embed=screenshot.url`;
 
     return NextResponse.json({
       success: true,
       data: {
-        id: savedScan?.id || 'temp-id',
+        id: savedScan?.id || 'temp',
         url: normalizedUrl,
-        summary: analysis.summary,
-        risk_score: analysis.risk_score,
-        category: analysis.category,
-        tags: analysis.tags,
+        ...analysis,
         screenshot_url: screenshotUrl,
-        created_at: savedScan?.created_at || new Date().toISOString(),
+        created_at: new Date().toISOString(),
         from_cache: false,
       },
-    } as AnalysisResponse);
-
+    });
   } catch (error: any) {
-    console.error('Analysis error:', error);
+    console.error('Server Error:', error);
     return NextResponse.json(
-      { success: false, error: 'An unexpected error occurred. Please try again.' } as AnalysisResponse,
-      { status: 500 }
+      { success: false, error: 'Internal Server Error' },
+      { status: 500 },
     );
   }
 }
