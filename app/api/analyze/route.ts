@@ -281,11 +281,12 @@ export async function POST(request: Request) {
         tags: analysis.tags,
         screenshot_url: screenshotUrl,
         from_cache: false,
+        created_at: new Date().toISOString(),
       };
 
       const { data, error } = await supabaseAuth
         .from('scans')
-        .insert({ ...scanToSave, created_at: undefined })
+        .upsert(scanToSave, { onConflict: 'user_id,url_hash' })
         .select()
         .single();
 
