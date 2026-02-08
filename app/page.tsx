@@ -229,7 +229,7 @@ export default function Home() {
                 <div className='flex flex-col gap-2 w-full md:w-auto'>
                   <button
                     type='submit'
-                    disabled={loading && loadingType === 'quick'}
+                    disabled={loading}
                     className='w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold px-8 py-4 rounded-xl transition-all transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed shadow-lg mb-2'
                   >
                     {loading && loadingType === 'quick'
@@ -238,7 +238,7 @@ export default function Home() {
                   </button>
                   <button
                     type='button'
-                    disabled={loading && loadingType === 'deep'}
+                    disabled={loading}
                     onClick={(e) => handleAnalyze(e as any, 'deep')}
                     className='w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold px-8 py-4 rounded-xl transition-all transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed shadow-lg'
                   >
