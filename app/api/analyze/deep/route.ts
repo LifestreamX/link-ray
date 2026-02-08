@@ -126,21 +126,26 @@ export async function POST(request: Request) {
     // Save scan to database for logged-in user (same as quick analyze/route.ts)
     const authHeader = request.headers.get('Authorization');
     const accessToken = authHeader?.replace('Bearer ', '') || '';
-    
+
     if (accessToken) {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
       const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
       const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
         global: { headers: { Authorization: `Bearer ${accessToken}` } },
       });
-      
-      const { data: { user } } = await supabaseAuth.auth.getUser();
-      
+
+      const {
+        data: { user },
+      } = await supabaseAuth.auth.getUser();
+
       if (user) {
         // Generate url_hash using crypto
         const crypto = require('crypto');
-        const urlHash = crypto.createHash('md5').update(normalizedUrl).digest('hex');
-        
+        const urlHash = crypto
+          .createHash('md5')
+          .update(normalizedUrl)
+          .digest('hex');
+
         const scanToSave = {
           user_id: user.id,
           url_hash: urlHash,
@@ -153,7 +158,7 @@ export async function POST(request: Request) {
           screenshot_url: screenshotUrl,
           from_cache: false,
         };
-        
+
         const { data, error } = await supabaseAuth
           .from('scans')
           .insert({ ...scanToSave, created_at: undefined })
@@ -178,7 +183,7 @@ export async function POST(request: Request) {
         });
       }
     }
-    
+
     // Anonymous user - no save
     return NextResponse.json({
       success: true,

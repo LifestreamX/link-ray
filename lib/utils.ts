@@ -5,21 +5,11 @@ import * as cheerio from 'cheerio';
  * Generate MD5 hash of a URL for cache lookups
  */
 export function hashUrl(url: string): string {
-  return md5(url.toLowerCase().trim());
-}
-
-// Simple browser-compatible MD5 hash function (for demo only)
-function md5(string: string): string {
-  let hash = 0,
-    i,
-    chr;
-  if (string.length === 0) return hash.toString();
-  for (i = 0; i < string.length; i++) {
-    chr = string.charCodeAt(i);
-    hash = (hash << 5) - hash + chr;
-    hash |= 0;
-  }
-  return hash.toString();
+  const crypto = require('crypto');
+  return crypto
+    .createHash('md5')
+    .update(url.toLowerCase().trim())
+    .digest('hex');
 }
 
 export async function crawlWebsite(
