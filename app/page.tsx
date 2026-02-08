@@ -5,6 +5,29 @@ import { supabase } from '@/lib/supabase';
 import type { ScanResult, Scan } from '@/types';
 import { getRiskColor, formatRelativeTime } from '@/lib/utils';
 
+function ScreenshotWithSkeleton({ src, alt }: { src: string; alt: string }) {
+  const [loading, setLoading] = useState(true);
+  return (
+    <div
+      className='relative w-full flex justify-center items-center'
+      style={{ minHeight: 180 }}
+    >
+      {loading && (
+        <div className='absolute inset-0 flex items-center justify-center'>
+          <div className='w-full h-44 bg-gray-700 animate-pulse rounded-xl' />
+        </div>
+      )}
+      <img
+        src={src}
+        alt={alt}
+        className={`rounded-xl border border-gray-700 max-w-full h-auto shadow-lg transition-opacity duration-300 ${loading ? 'opacity-0' : 'opacity-100'}`}
+        style={{ maxHeight: 300 }}
+        onLoad={() => setLoading(false)}
+      />
+    </div>
+  );
+}
+
 export default function Home() {
   // Use singleton supabase client from lib/supabase
 
@@ -305,11 +328,9 @@ export default function Home() {
                 {/* Screenshot Image */}
                 {result.screenshot_url && (
                   <div className='mb-6 flex justify-center'>
-                    <img
+                    <ScreenshotWithSkeleton
                       src={result.screenshot_url}
                       alt='Website Screenshot'
-                      className='rounded-xl border border-gray-700 max-w-full h-auto shadow-lg'
-                      style={{ maxHeight: 300 }}
                     />
                   </div>
                 )}
