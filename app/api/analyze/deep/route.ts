@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { crawlWebsite, validateUrl } from '@/lib/utils';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as cheerio from 'cheerio';
+import { createClient } from '@supabase/supabase-js';
 import type {
   AnalysisRequest,
   GeminiAnalysisResult,
@@ -121,9 +122,75 @@ export async function POST(request: Request) {
     }
     // Add screenshot_url to response
     const screenshotUrl = `https://api.microlink.io?url=${encodeURIComponent(normalizedUrl)}&screenshot=true&meta=false&embed=screenshot.url`;
+
+    // Save scan to database for logged-in user (same as quick analyze/route.ts)
+    const authHeader = request.headers.get('Authorization');
+    const accessToken = authHeader?.replace('Bearer ', '') || '';
+    
+    if (accessToken) {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+      const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: `Bearer ${accessToken}` } },
+      });
+      
+      const { data: { user } } = await supabaseAuth.auth.getUser();
+      
+      if (user) {
+        // Generate url_hash using crypto
+        const crypto = require('crypto');
+        const urlHash = crypto.createHash('md5').update(normalizedUrl).digest('hex');
+        
+        const scanToSave = {
+          user_id: user.id,
+          url_hash: urlHash,
+          url: normalizedUrl,
+          summary: analysis.summary,
+          risk_score: analysis.risk_score,
+          reason: analysis.reason,
+          category: analysis.category,
+          tags: analysis.tags,
+          screenshot_url: screenshotUrl,
+          from_cache: false,
+        };
+        
+        const { data, error } = await supabaseAuth
+          .from('scans')
+          .insert({ ...scanToSave, created_at: undefined })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Error saving deep scan:', error);
+        }
+
+        return NextResponse.json({
+          success: true,
+          data: {
+            id: data?.id || 'temp',
+            user_id: user.id,
+            url: normalizedUrl,
+            ...analysis,
+            screenshot_url: screenshotUrl,
+            created_at: data?.created_at || new Date().toISOString(),
+            from_cache: false,
+          },
+        });
+      }
+    }
+    
+    // Anonymous user - no save
     return NextResponse.json({
       success: true,
-      data: { ...analysis, screenshot_url: screenshotUrl },
+      data: {
+        id: 'anon',
+        user_id: '',
+        url: normalizedUrl,
+        ...analysis,
+        screenshot_url: screenshotUrl,
+        created_at: new Date().toISOString(),
+        from_cache: false,
+      },
     });
   } catch (error: any) {
     return NextResponse.json(

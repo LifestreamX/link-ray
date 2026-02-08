@@ -56,7 +56,7 @@ export async function getRecentScans(
     .from('scans')
     .select('*')
     .eq('user_id', user_id)
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: false });
   if (limit !== undefined) {
     query = query.limit(limit);
   }
