@@ -109,11 +109,25 @@ async function analyzeWithAI(
   // ✅ THE ULTIMATE FREE LIST
   // This tries your huge quotas first, then falls back to others.
   const modelsToTry = [
-    'gemma-3-27b-it', // 1. HUGE QUOTA (14,400/day) - Try this first!
-    'gemini-2.0-flash-lite-001', // 2. Separate "Lite" Bucket (1,500/day)
-    'gemini-exp-1206', // 3. Experimental Bucket (Separate quota)
-    'gemini-2.5-flash', // 4. Standard Flash (Your 20/day - backup)
-    'gemini-flash-latest', // 5. Final Backup
+    // 1. Primary: Smartest Gemma Model (Huge Quota: 14k/day)
+    'gemma-3-27b-it',
+
+    // 2. Backup Gemma Models (If 27B is busy, these share the same huge 14k limit)
+    'gemma-3-12b-it',
+    'gemma-3-4b-it',
+
+    // 3. Gemini "Flash Lite" (Separate Bucket: 1,500/day)
+    'gemini-2.0-flash-lite-001',
+
+    // 4. Gemini 3 Flash (Your screenshot shows 0/20 used here!)
+    'gemini-3-flash-preview',
+
+    // 5. Experimental (Separate Quota)
+    'gemini-exp-1206',
+
+    // 6. Standard Flash (The one you maxed out today - keep as last resort)
+    'gemini-2.5-flash',
+    'gemini-flash-latest',
   ];
 
   const prompt = `You are a cybersecurity expert. Analyze this website content.
