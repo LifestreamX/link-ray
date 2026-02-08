@@ -131,8 +131,8 @@ export default function Home() {
   };
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white flex items-center justify-center'>
-      <div className='fixed top-0 left-0 w-full flex justify-center sm:justify-end items-center px-4 sm:px-6 py-3 z-50'>
+    <div className='min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white'>
+      <div className='w-full flex justify-end items-center px-4 sm:px-6 py-3'>
         {!user ? (
           <button
             onClick={handleSignIn}
