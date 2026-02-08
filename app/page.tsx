@@ -10,6 +10,7 @@ export default function Home() {
 
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingType, setLoadingType] = useState<'quick' | 'deep' | null>(null);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [recentScans, setRecentScans] = useState<Scan[]>([]);
@@ -76,6 +77,7 @@ export default function Home() {
     }
 
     setLoading(true);
+    setLoadingType(scanType);
     setError(null);
     setResult(null);
 
@@ -115,6 +117,7 @@ export default function Home() {
       setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
+      setLoadingType(null);
     }
   };
 
@@ -177,7 +180,7 @@ export default function Home() {
           </div>
         )}
       </div>
-      <div className='w-full max-w-7xl mx-auto px-4 py-6 flex flex-col items-center justify-center lg:mt-36'>
+      <div className='w-full max-w-7xl mx-auto px-4 py-6 flex flex-col items-center justify-center'>
         {/* Header */}
         <header className='text-center mb-12 pt-8 max-w-5xl mx-auto w-full'>
           <div className='inline-flex items-center gap-3 mb-4'>
@@ -208,7 +211,10 @@ export default function Home() {
 
         {/* Search Form */}
         <div className='mb-12 max-w-5xl mx-auto w-full'>
-          <form className='max-w-5xl w-full mx-auto'>
+          <form
+            className='max-w-5xl w-full mx-auto'
+            onSubmit={(e) => handleAnalyze(e, 'quick')}
+          >
             <div className='bg-gray-800/50 backdrop-blur-sm rounded-2xl p-8 shadow-2xl border border-gray-700'>
               <div className='flex flex-col md:flex-row gap-4 items-center justify-center'>
                 <input
@@ -222,20 +228,23 @@ export default function Home() {
                 />
                 <div className='flex flex-col gap-2 w-full md:w-auto'>
                   <button
-                    type='button'
-                    disabled={loading}
-                    onClick={(e) => handleAnalyze(e as any, 'quick')}
+                    type='submit'
+                    disabled={loading && loadingType === 'quick'}
                     className='w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold px-8 py-4 rounded-xl transition-all transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed shadow-lg mb-2'
                   >
-                    {loading ? 'Analyzing...' : 'Quick Analyze'}
+                    {loading && loadingType === 'quick'
+                      ? 'Analyzing...'
+                      : 'Quick Analyze'}
                   </button>
                   <button
                     type='button'
-                    disabled={loading}
+                    disabled={loading && loadingType === 'deep'}
                     onClick={(e) => handleAnalyze(e as any, 'deep')}
                     className='w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold px-8 py-4 rounded-xl transition-all transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed shadow-lg'
                   >
-                    {loading ? 'Analyzing...' : 'Deep Analyze'}
+                    {loading && loadingType === 'deep'
+                      ? 'Analyzing...'
+                      : 'Deep Analyze'}
                   </button>
                 </div>
               </div>
@@ -293,6 +302,17 @@ export default function Home() {
           <div className='max-w-5xl mx-auto mb-12 w-full'>
             <div className='bg-gray-800/50 backdrop-blur-sm rounded-2xl overflow-hidden shadow-2xl border border-gray-700 mb-8'>
               <div className='p-6'>
+                {/* Screenshot Image */}
+                {result.screenshot_url && (
+                  <div className='mb-6 flex justify-center'>
+                    <img
+                      src={result.screenshot_url}
+                      alt='Website Screenshot'
+                      className='rounded-xl border border-gray-700 max-w-full h-auto shadow-lg'
+                      style={{ maxHeight: 300 }}
+                    />
+                  </div>
+                )}
                 {/* Safety Score Bar and Label */}
                 <div className='mb-6'>
                   <div className='flex items-center justify-between mb-2'>

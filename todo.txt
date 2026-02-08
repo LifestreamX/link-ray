@@ -1,9 +1,0 @@
-
-
-TOOD: Sign in google breakng local
-
-TODO: Does ai search entire website or just front page?
-
-TODO: How does AI rank safety score
-
-TODO: Maybe add detail anaysisi button opens modal or something that has a long detail summary about the company

@@ -91,14 +91,16 @@ export async function POST(request: Request) {
         { status: 422 },
       );
     }
-    // Aggregate all page content
+    // Aggregate all page content and log crawl progress
     let combinedText = '';
     let combinedTitles = [];
     for (const page of pages) {
+      console.log(`[Crawler] Crawling: ${page.url}`);
       const scraped = scrapeContent(page.content);
       if (scraped.text && scraped.text.length > 50) {
         combinedText += `\n---\n[${page.url}]\n${scraped.text}`;
         if (scraped.title) combinedTitles.push(scraped.title);
+        console.log(`[Crawler] Analyzed: ${page.url}`);
       }
     }
     if (!combinedText) {
