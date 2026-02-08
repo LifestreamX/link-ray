@@ -245,7 +245,8 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: 'AI analysis failed. Please try again later.',
+          error:
+            'AI analysis failed. This is likely due to API quota limits or service issues. Please try again later or check your API usage.',
         },
         { status: 500 },
       );

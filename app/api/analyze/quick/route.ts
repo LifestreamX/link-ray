@@ -7,6 +7,7 @@ import type {
   GeminiAnalysisResult,
   ScrapedContent,
 } from '@/types';
+import { createClient } from '@supabase/supabase-js';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
@@ -23,16 +24,35 @@ async function callGemini(modelName: string, prompt: string): Promise<any> {
 async function analyzeWithAI(
   content: ScrapedContent,
 ): Promise<GeminiAnalysisResult> {
+  // ✅ THE ULTIMATE FREE LIST
+  // We cycle through every free bucket you have available.
   const modelsToTry = [
+    // 1. Primary: Smartest Gemma Model (Huge Quota: 14k/day)
+    'gemma-3-27b-it',
+
+    // 2. Backup Gemma Models (If 27B is busy, these share the same huge 14k limit)
+    'gemma-3-12b-it',
+    'gemma-3-4b-it',
+
+    // 3. Gemini "Flash Lite" (Separate Bucket: 1,500/day)
     'gemini-2.0-flash-lite-001',
-    'gemini-flash-lite-latest',
+
+    // 4. Gemini 3 Flash (Your screenshot shows 0/20 used here!)
     'gemini-3-flash-preview',
+
+    // 5. Experimental (Separate Quota)
+    'gemini-exp-1206',
+
+    // 6. Standard Flash (The one you maxed out today - keep as last resort)
     'gemini-2.5-flash',
+    'gemini-flash-latest',
   ];
   const prompt = `You are a cybersecurity expert. Analyze this website content.\nTitle: ${content.title}\nContent: ${content.text}\n\nRules for Risk Score (0-100, where 100 is Safe):\n- Phishing, Scams, Malware = 0-20\n- Spammy, Low Quality, Unverified Crypto = 30-50\n- Legitimate Business, Blogs, News = 80-90\n- Verified Tech Platforms (e.g., GitHub, AWS, Google) = 95-100\n\nReturn a JSON object with this EXACT structure:\n{\n  "summary": "A detailed 3-4 sentence paragraph summarizing the website's purpose, key features, and target audience.",\n  "risk_score": 50,\n  "reason": "Explain why you gave this risk_score, referencing specific content. Be consistent with the score.",\n  "category": "Category Name",\n  "tags": ["tag1", "tag2", "tag3"]\n }`;
   for (const modelName of modelsToTry) {
     try {
+      console.log(`[AI] Attempting to analyze with model: ${modelName}...`);
       const analysis = await callGemini(modelName, prompt);
+      console.log(`[AI] Success with model: ${modelName}`);
       return {
         summary: analysis.summary || 'Unable to generate summary',
         risk_score:
@@ -42,6 +62,10 @@ async function analyzeWithAI(
         tags: Array.isArray(analysis.tags) ? analysis.tags.slice(0, 5) : [],
       };
     } catch (error: any) {
+      console.warn(
+        `[AI] Failed with model: ${modelName}:`,
+        error?.message || error,
+      );
       // Continue loop...
     }
   }
@@ -117,7 +141,11 @@ export async function POST(request: Request) {
       analysis = await analyzeWithAI(unifiedContent);
     } catch (e) {
       return NextResponse.json(
-        { success: false, error: 'AI analysis failed.' },
+        {
+          success: false,
+          error:
+            'AI analysis failed. This is likely due to API quota limits or service issues. Please try again later or check your API usage.',
+        },
         { status: 500 },
       );
     }
@@ -129,7 +157,6 @@ export async function POST(request: Request) {
     const accessToken = authHeader?.replace('Bearer ', '') || '';
 
     if (accessToken) {
-      const { createClient } = await import('@supabase/supabase-js');
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
       const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
       const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {

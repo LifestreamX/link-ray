@@ -24,11 +24,28 @@ async function callGemini(modelName: string, prompt: string): Promise<any> {
 async function analyzeWithAI(
   content: ScrapedContent,
 ): Promise<GeminiAnalysisResult> {
+  // ✅ THE ULTIMATE FREE LIST
+  // We cycle through every free bucket you have available.
   const modelsToTry = [
+    // 1. Primary: Smartest Gemma Model (Huge Quota: 14k/day)
+    'gemma-3-27b-it',
+
+    // 2. Backup Gemma Models (If 27B is busy, these share the same huge 14k limit)
+    'gemma-3-12b-it',
+    'gemma-3-4b-it',
+
+    // 3. Gemini "Flash Lite" (Separate Bucket: 1,500/day)
     'gemini-2.0-flash-lite-001',
-    'gemini-flash-lite-latest',
+
+    // 4. Gemini 3 Flash (Your screenshot shows 0/20 used here!)
     'gemini-3-flash-preview',
+
+    // 5. Experimental (Separate Quota)
+    'gemini-exp-1206',
+
+    // 6. Standard Flash (The one you maxed out today - keep as last resort)
     'gemini-2.5-flash',
+    'gemini-flash-latest',
   ];
   const prompt = `You are a cybersecurity expert. Analyze this website content in extreme detail.\nTitle: ${content.title}\nContent: ${content.text}\n\nRules for Risk Score (0-100, where 100 is Safe):\n- Phishing, Scams, Malware = 0-20\n- Spammy, Low Quality, Unverified Crypto = 30-50\n- Legitimate Business, Blogs, News = 80-90\n- Verified Tech Platforms (e.g., GitHub, AWS, Google) = 95-100\n\nCheck and mention ALL possible risk factors and safety signals, including:\n- SSL/HTTPS presence\n- Contact information (email, phone, address)\n- Social media links\n- Privacy policy and terms\n- Company details and reviews\n- Technical stack and security headers\n- Domain age and reputation\n- External links and redirects\n- Presence of suspicious keywords or patterns\n- User-generated content\n- Downloadable files\n- Ads, popups, trackers\n- Site structure and navigation\n- Trust badges, certifications\n- Any other relevant signals\n\nReturn a JSON object with this EXACT structure:\n{\n  "summary": "A comprehensive, multi-paragraph summary (at least 8-10 sentences) that covers the website's purpose, main sections, key features, target audience, notable content, and all risk/safety factors found. Highlight important topics, recurring themes, and provide a broad overview of what a visitor would learn or experience. If the site is large, mention the diversity of content and any unique aspects discovered during crawling.",\n  "risk_score": 50,\n  "reason": "Explain why you gave this risk_score, referencing specific content, pages, and all risk/safety factors checked. Be consistent with the score.",\n  "category": "Category Name",\n  "tags": ["tag1", "tag2", "tag3", "tag4", "tag5", "tag6", "tag7"]\n }`;
   for (const modelName of modelsToTry) {
@@ -116,7 +133,11 @@ export async function POST(request: Request) {
       analysis = await analyzeWithAI(unifiedContent);
     } catch (e) {
       return NextResponse.json(
-        { success: false, error: 'AI analysis failed.' },
+        {
+          success: false,
+          error:
+            'AI analysis failed. This is likely due to API quota limits or service issues. Please try again later or check your API usage.',
+        },
         { status: 500 },
       );
     }
