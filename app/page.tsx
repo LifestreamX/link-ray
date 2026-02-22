@@ -36,6 +36,8 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [recentScans, setRecentScans] = useState<Scan[]>([]);
   const { data: session } = useSession();
+  // Dropdown state for profile menu
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
   // Fetch recent scans on mount and when session changes (login/logout)
   useEffect(() => {
@@ -155,25 +157,38 @@ export default function Home() {
           {/* Google Sign-In Button - Top Right */}
           <div>
             {session ? (
-              <div className='flex items-center gap-3'>
+              <div className='flex items-center gap-3 relative'>
                 <div className='flex items-center gap-2'>
                   {session.user?.image && (
-                    <img
-                      src={session.user.image}
-                      alt='Profile'
-                      className='w-8 h-8 rounded-full border-2 border-blue-500'
-                    />
+                    <div className='relative group'>
+                      <img
+                        src={session.user.image}
+                        alt='Profile'
+                        className='w-8 h-8 rounded-full border-2 border-blue-500 cursor-pointer'
+                        onClick={() => setShowProfileDropdown((v) => !v)}
+                      />
+                      {showProfileDropdown && (
+                        <div className='absolute right-0 mt-2 w-40 bg-gray-900 border border-gray-700 rounded-xl shadow-lg z-50 flex flex-col py-2'>
+                          <span className='px-4 py-2 text-gray-300 text-sm font-medium border-b border-gray-700'>
+                            {session.user?.name || session.user?.email}
+                          </span>
+                          <button
+                            className='px-4 py-2 text-left text-red-400 hover:bg-gray-800 text-sm font-medium transition-all rounded-b-xl'
+                            onClick={() => {
+                              setShowProfileDropdown(false);
+                              signOut();
+                            }}
+                          >
+                            Sign Out
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )}
                   <span className='text-sm text-gray-300 hidden sm:inline'>
                     {session.user?.name || session.user?.email}
                   </span>
                 </div>
-                <button
-                  className='bg-red-500 hover:bg-red-600 text-white font-medium px-4 py-2 rounded-lg transition-all text-sm'
-                  onClick={() => signOut()}
-                >
-                  Sign Out
-                </button>
               </div>
             ) : (
               <button
