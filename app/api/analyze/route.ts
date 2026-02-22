@@ -3,6 +3,8 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as cheerio from 'cheerio';
 import { getCachedScan, saveScan } from '@/lib/db';
 import { hashUrl, validateUrl } from '@/lib/utils';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import type {
   AnalysisRequest,
   GeminiAnalysisResult,
@@ -176,8 +178,9 @@ async function analyzeWithAI(
  */
 export async function POST(request: Request) {
   try {
-    // For now, use anonymous user (you can add auth later)
-    const user = { id: 'anonymous' };
+    // Get the logged-in user from session
+    const session = await getServerSession(authOptions);
+    const user = session?.user ? { id: (session.user as any).id } : null;
 
     const body: AnalysisRequest = await request.json();
     const { url } = body;

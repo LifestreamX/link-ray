@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { crawlWebsite, validateUrl, hashUrl } from '@/lib/utils';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as cheerio from 'cheerio';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import type {
   AnalysisRequest,
   GeminiAnalysisResult,
@@ -144,32 +146,35 @@ export async function POST(request: Request) {
     // Add screenshot_url to response
     const screenshotUrl = `https://api.microlink.io?url=${encodeURIComponent(normalizedUrl)}&screenshot=true&meta=false&embed=screenshot.url`;
 
-    // Save scan to database (using anonymous user for now)
-    const user = { id: 'anonymous' };
+    // Get the logged-in user from session
+    const session = await getServerSession(authOptions);
+    const user = session?.user ? { id: (session.user as any).id } : null;
     const urlHash = hashUrl(normalizedUrl);
 
-    const scanToSave = {
-      user_id: user.id,
-      url_hash: urlHash,
-      url: normalizedUrl,
-      summary: analysis.summary,
-      risk_score: analysis.risk_score,
-      reason: analysis.reason,
-      category: analysis.category,
-      tags: analysis.tags,
-    };
+    if (user) {
+      const scanToSave = {
+        user_id: user.id,
+        url_hash: urlHash,
+        url: normalizedUrl,
+        summary: analysis.summary,
+        risk_score: analysis.risk_score,
+        reason: analysis.reason,
+        category: analysis.category,
+        tags: analysis.tags,
+      };
 
-    const savedScan = await saveScan(scanToSave);
+      const savedScan = await saveScan(scanToSave);
 
-    if (savedScan) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          ...savedScan,
-          screenshot_url: screenshotUrl,
-          from_cache: false,
-        },
-      });
+      if (savedScan) {
+        return NextResponse.json({
+          success: true,
+          data: {
+            ...savedScan,
+            screenshot_url: screenshotUrl,
+            from_cache: false,
+          },
+        });
+      }
     }
 
     // Save failed - return without DB save

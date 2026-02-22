@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getRecentScans } from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function GET(request: Request) {
   try {
-    // For now, use anonymous user (you can add auth later)
-    const userId = 'anonymous';
+    // Get the logged-in user from session
+    const session = await getServerSession(authOptions);
+    const userId = session?.user ? (session.user as any).id : 'anonymous';
 
     const scans = await getRecentScans(userId, 10);
 

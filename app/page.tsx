@@ -37,10 +37,10 @@ export default function Home() {
   const [recentScans, setRecentScans] = useState<Scan[]>([]);
   const { data: session } = useSession();
 
-  // Fetch recent scans on mount and listen for auth changes
+  // Fetch recent scans on mount and when session changes (login/logout)
   useEffect(() => {
     fetchRecentScans();
-  }, []);
+  }, [session]);
 
   // Removed handleSignIn and handleSignOut
 
