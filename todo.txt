@@ -1,4 +1,0 @@
-TODO: Cockroach db working
-TODO: Google auth working 
-TODO: Favicon
-TODO: Google login button style
