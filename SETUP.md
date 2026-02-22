@@ -67,47 +67,6 @@ Dependencies have been installed. You should see a `node_modules` folder in your
 
 ## 🔑 Step 4: Configure Environment Variables
 
-### 4.1 Edit `.env` File
-
-Open the `.env` file in your project root and replace the placeholder values:
-
-```env
-# Replace with YOUR Supabase URL (from Step 2.4)
-NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
-
-# Replace with YOUR Supabase anon key (from Step 2.4)
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-
-# Replace with YOUR Gemini API key (from Step 3.1)
-GEMINI_API_KEY=AIzaSy...
-```
-
-**Save the file!**
-
----
-
-## 🏃 Step 5: Run the Development Server
-
-Open a terminal in the project directory and run:
-
-```bash
-npm run dev
-```
-
-You should see:
-
-```
-  ▲ Next.js 14.x.x
-  - Local:        http://localhost:3000
-  - Ready in 2.3s
-```
-
----
-
-## 🎉 Step 6: Test It Out!
-
-1. Open [http://localhost:3000](http://localhost:3000) in your browser
-2. You should see the LinkRay homepage
 3. Try analyzing a URL like:
    - `https://github.com`
    - `https://wikipedia.org`

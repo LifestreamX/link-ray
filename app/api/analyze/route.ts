@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as cheerio from 'cheerio';
-import { getCachedScan } from '@/lib/supabase';
+import { getCachedScan, saveScan } from '@/lib/db';
 import { hashUrl, validateUrl } from '@/lib/utils';
-import { createClient } from '@supabase/supabase-js';
 import type {
   AnalysisRequest,
   GeminiAnalysisResult,
@@ -177,25 +176,8 @@ async function analyzeWithAI(
  */
 export async function POST(request: Request) {
   try {
-    // Extract access token from Authorization header
-    const authHeader = request.headers.get('Authorization');
-    const accessToken = authHeader?.replace('Bearer ', '') || '';
-
-    // Create a Supabase client with the user's access token
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: accessToken ? `Bearer ${accessToken}` : '',
-        },
-      },
-    });
-
-    // Get user from access token
-    const {
-      data: { user },
-    } = await supabaseAuth.auth.getUser();
+    // For now, use anonymous user (you can add auth later)
+    const user = { id: 'anonymous' };
 
     const body: AnalysisRequest = await request.json();
     const { url } = body;
@@ -268,7 +250,7 @@ export async function POST(request: Request) {
 
     const screenshotUrl = `https://api.microlink.io?url=${encodeURIComponent(normalizedUrl)}&screenshot=true&meta=false&embed=screenshot.url`;
 
-    // 6. Save Logic
+    // 6. Save scan to database
     if (user) {
       const scanToSave = {
         user_id: user.id,
@@ -279,48 +261,35 @@ export async function POST(request: Request) {
         reason: analysis.reason,
         category: analysis.category,
         tags: analysis.tags,
-        screenshot_url: screenshotUrl,
-        from_cache: false,
-        created_at: new Date().toISOString(),
       };
 
-      const { data, error } = await supabaseAuth
-        .from('scans')
-        .upsert(scanToSave, { onConflict: 'user_id,url_hash' })
-        .select()
-        .single();
+      const savedScan = await saveScan(scanToSave);
 
-      if (error) {
-        console.error('Error saving scan:', error);
+      if (savedScan) {
+        return NextResponse.json({
+          success: true,
+          data: {
+            ...savedScan,
+            screenshot_url: screenshotUrl,
+            from_cache: false,
+          },
+        });
       }
-
-      return NextResponse.json({
-        success: true,
-        data: {
-          id: data?.id || 'temp',
-          user_id: user.id,
-          url: normalizedUrl,
-          ...analysis,
-          screenshot_url: screenshotUrl,
-          created_at: data?.created_at || new Date().toISOString(),
-          from_cache: false,
-        },
-      });
-    } else {
-      // Anonymous User Response
-      return NextResponse.json({
-        success: true,
-        data: {
-          id: 'anon',
-          user_id: '',
-          url: normalizedUrl,
-          ...analysis,
-          screenshot_url: screenshotUrl,
-          created_at: new Date().toISOString(),
-          from_cache: false,
-        },
-      });
     }
+
+    // Anonymous User Response
+    return NextResponse.json({
+      success: true,
+      data: {
+        id: 'anon',
+        user_id: '',
+        url: normalizedUrl,
+        ...analysis,
+        screenshot_url: screenshotUrl,
+        created_at: new Date().toISOString(),
+        from_cache: false,
+      },
+    });
   } catch (error: any) {
     console.error('Server Error:', error);
     return NextResponse.json(

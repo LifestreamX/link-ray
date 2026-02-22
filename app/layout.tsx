@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { Providers } from './providers';
 
 export const metadata: Metadata = {
   title: 'LinkRay - AI Link Pre-screener',
@@ -14,7 +15,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang='en' className='dark'>
-      <body className='antialiased'>{children}</body>
+      <head>
+        <link rel='icon' type='image/svg+xml' href='/favicon.svg' />
+        <link rel='alternate icon' href='/favicon.ico' />
+      </head>
+      <body className='antialiased'>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

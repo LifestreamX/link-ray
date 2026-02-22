@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { crawlWebsite, validateUrl } from '@/lib/utils';
+import { crawlWebsite, validateUrl, hashUrl } from '@/lib/utils';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as cheerio from 'cheerio';
 import type {
@@ -7,7 +7,7 @@ import type {
   GeminiAnalysisResult,
   ScrapedContent,
 } from '@/types';
-import { createClient } from '@supabase/supabase-js';
+import { saveScan } from '@/lib/db';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
@@ -152,70 +152,35 @@ export async function POST(request: Request) {
     // Add screenshot_url to response
     const screenshotUrl = `https://api.microlink.io?url=${encodeURIComponent(normalizedUrl)}&screenshot=true&meta=false&embed=screenshot.url`;
 
-    // Save scan to database for logged-in user with upsert
-    const authHeader = request.headers.get('Authorization');
-    const accessToken = authHeader?.replace('Bearer ', '') || '';
+    // Save scan to database (using anonymous user for now)
+    const user = { id: 'anonymous' };
+    const urlHash = hashUrl(normalizedUrl);
 
-    if (accessToken) {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-      const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
-        global: { headers: { Authorization: `Bearer ${accessToken}` } },
-      });
+    const scanToSave = {
+      user_id: user.id,
+      url_hash: urlHash,
+      url: normalizedUrl,
+      summary: analysis.summary,
+      risk_score: analysis.risk_score,
+      reason: analysis.reason,
+      category: analysis.category,
+      tags: analysis.tags,
+    };
 
-      const {
-        data: { user },
-      } = await supabaseAuth.auth.getUser();
+    const savedScan = await saveScan(scanToSave);
 
-      if (user) {
-        // Generate url_hash using crypto
-        const crypto = require('crypto');
-        const urlHash = crypto
-          .createHash('md5')
-          .update(normalizedUrl)
-          .digest('hex');
-
-        const scanToSave = {
-          user_id: user.id,
-          url_hash: urlHash,
-          url: normalizedUrl,
-          summary: analysis.summary,
-          risk_score: analysis.risk_score,
-          reason: analysis.reason,
-          category: analysis.category,
-          tags: analysis.tags,
+    if (savedScan) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          ...savedScan,
           screenshot_url: screenshotUrl,
           from_cache: false,
-          created_at: new Date().toISOString(),
-        };
-
-        // Upsert: update if exists, insert if not
-        const { data, error } = await supabaseAuth
-          .from('scans')
-          .upsert(scanToSave, { onConflict: 'user_id,url_hash' })
-          .select()
-          .single();
-
-        if (error) {
-          console.error('Error saving quick scan:', error);
-        } else {
-          return NextResponse.json({
-            success: true,
-            data: {
-              id: data?.id || 'temp',
-              user_id: user.id,
-              url: normalizedUrl,
-              ...analysis,
-              screenshot_url: screenshotUrl,
-              created_at: data?.created_at || new Date().toISOString(),
-              from_cache: false,
-            },
-          });
-        }
-      }
+        },
+      });
     }
 
-    // Anonymous user or save failed - return without DB save
+    // Save failed - return without DB save
     return NextResponse.json({
       success: true,
       data: { ...analysis, screenshot_url: screenshotUrl },
