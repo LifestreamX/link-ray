@@ -192,7 +192,7 @@ export default function Home() {
               </div>
             ) : (
               <button
-                className='bg-blue-500 hover:bg-blue-600 text-white font-medium px-4 py-2 rounded-lg transition-all flex items-center gap-2 text-sm'
+                className='bg-white hover:bg-gray-200 text-gray-900 font-medium px-4 py-2 rounded-lg transition-all flex items-center gap-2 text-sm border border-gray-300 shadow-md'
                 onClick={() => signIn('google')}
               >
                 <svg
